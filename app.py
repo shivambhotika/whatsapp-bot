@@ -4,10 +4,12 @@ from twilio.twiml.messaging_response import MessagingResponse
 from openai import OpenAI
 from dotenv import load_dotenv
 load_dotenv()
+
 app = Flask(__name__)
 openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 TWILIO_ACCOUNT_SID = os.environ["TWILIO_ACCOUNT_SID"]
 TWILIO_AUTH_TOKEN  = os.environ["TWILIO_AUTH_TOKEN"]
+
 def transcribe_audio(media_url, content_type):
     ext = ".ogg" if "ogg" in content_type else ".mp4"
     r = requests.get(media_url, auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN), timeout=30)
@@ -19,6 +21,11 @@ def transcribe_audio(media_url, content_type):
             return openai_client.audio.transcriptions.create(model="whisper-1", file=f).text
     finally:
         os.unlink(tmp_path)
+
+@app.route("/health", methods=["GET"])
+def health():
+    return "OK", 200
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     twiml = MessagingResponse()
@@ -36,6 +43,7 @@ def webhook():
     except Exception as e:
         print(f"[ERROR] {e}"); twiml.message("⚠️ Could not transcribe. Please try again.")
     return Response(str(twiml), mimetype="text/xml")
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host="0.0.0.0", port=port)
